@@ -42,4 +42,4 @@ Cite the paper and the IEMOCAP/MELD datasets (`data/README.md`).
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+Research use; see [LICENSE](LICENSE). Cite the paper when using this code.

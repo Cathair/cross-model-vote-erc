@@ -1,0 +1,13 @@
+.env
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+results/*
+!results/.gitkeep
+**/cache_*/
+**/*.log
+**/*.lock
+**/*.tmp
+.DS_Store

@@ -51,9 +51,9 @@ N_COMBOS = {1: 4, 2: 6, 3: 4, 4: 1}
 
 # 最优 ZS 3-run 均值（table_rq1_zs_sa.csv）：分数据集 WF1 最高单模型
 REF_LINES = {
-    "iem": {"y": 56.31, "label": "Best-ZS IEM (claude)"},
-    "meld": {"y": 64.92, "label": "Best-ZS MELD (gpt4o)"},
-    "comb": {"y": 60.26, "label": "Best-ZS Combined (gpt4o)"},
+    "iem": {"y": 56.31, "label": "Best-ZS IEM"},
+    "meld": {"y": 64.92, "label": "Best-ZS MELD"},
+    "comb": {"y": 60.26, "label": "Best-ZS Combined"},
 }
 
 COLORS = {"iem": "#EEA599", "meld": "#FAC795", "comb": "#92B4C8"}

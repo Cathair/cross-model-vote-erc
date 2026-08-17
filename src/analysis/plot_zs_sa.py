@@ -193,9 +193,9 @@ def plot_grouped_wf1(rows: list[dict]) -> None:
     for ax in axes:
         ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda v, _: f"{v * 100:.0f}%"))
     handles, labels = axes[0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc="upper center", ncol=2, frameon=True, framealpha=0.92,
-               bbox_to_anchor=(0.5, 1.04))
-    fig.tight_layout(rect=[0, 0, 1, 0.92])
+    fig.legend(handles, labels, loc="upper center", bbox_to_anchor=(0.5, -0.02),
+               ncol=2, frameon=False)
+    fig.tight_layout(rect=[0, 0.06, 1, 1])
 
     for ext in ("png", "pdf"):
         fig.savefig(FIGURES / f"fig_rq1_zs_sa_wf1.{ext}")

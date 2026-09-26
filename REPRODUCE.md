@@ -1,6 +1,8 @@
 # Reproduction Guide
 
-Reproduces Tables I–II and Figures 1–3 in the paper.
+Reproduces paper **Tables I–III** and **analysis figures** (`fig_rq1_zs_sa_wf1`, `fig_rq3_mv_k_wf1`, `fig_within_vs_cross_gain`). The pipeline overview figure in the paper is drawn separately and is not produced by this package.
+
+Precomputed run outputs are **not** included; complete Phase 1 before Phase 2.
 
 ## Workflow
 
@@ -17,6 +19,12 @@ Run all Phase 1 steps before Phase 2. Phase 2 order: `run_01` → `run_02` → `
 
 Optional: `RUN=2 MODEL=gpt-4o bash scripts/phase1/run_01_zs.sh` to run a subset.
 
+Offline check (no API):
+
+```bash
+python scripts/validate_release.py
+```
+
 ## Phase 1 details
 
 **ZS** — 4 models × 3 runs. Slugs use dots → hyphens (`gemini-2-5-flash-lite`).
@@ -25,50 +33,42 @@ Optional: `RUN=2 MODEL=gpt-4o bash scripts/phase1/run_01_zs.sh` to run a subset.
 
 **MPAR** — 3 runs; isolated cache per run via `MARC_CACHE_DIR` / `MARC_V37_OUT_DIR`. Checkpoints resume automatically in `run_03_mpar.sh`.
 
-**InsideOut** — 4 models × run1.
+**InsideOut** — 4 models × run1 (Aggregate `y_pred` for Table I InsideOut row; `logs[].agent_outputs` for InsideOut-MV-5 offline vote).
 
 | Method | API calls / sample |
 |--------|-------------------|
 | ZS | 1 |
 | SA | 1 |
 | MV-K | K (offline from ZS) |
-| MPAR | ~5–8 |
+| MPAR | ~5–8 (pooled mean in Table I when logs include `api_calls`) |
 | InsideOut | 6 |
+| InsideOut-MV-5 | 5 (five Ekman agents; MV offline) |
+| MPAR-MV-3 | 3 (Phase-0 only; MV offline from MPAR logs) |
 
 ZS full run ≈ 50,796 calls (4 models × 3 runs × 4,233 utterances).
 
-## Paper outputs
+## Paper outputs (926.md)
 
 | Artifact | Script | File |
 |----------|--------|------|
 | Table I | `run_05` | `results/tables/table_main_result.csv` |
 | Table II (MV-K) | `run_02` | `results/tables/table_mv_k_result.csv` |
-| Prompt ablation | `run_04` | `results/tables/table_prompt_ablation.csv` |
-| Fig. ZS vs SA | `run_01` | `results/figures/fig_rq1_zs_sa_wf1.png` |
-| Fig. MV-K | `run_02` | `results/figures/fig_rq3_mv_k_wf1.png` |
-| Fig. within vs cross | `run_03` | `results/figures/fig_within_vs_cross_gain.png` |
+| Table III (prompt ablation) | `run_04` | `results/tables/table_prompt_ablation.csv` |
+| Fig. 4 (ZS vs SA) | `run_01` | `results/figures/fig_rq1_zs_sa_wf1.png` |
+| Fig. 2 (MV-K) | `run_02` | `results/figures/fig_rq3_mv_k_wf1.png` |
+| Fig. 3 (within vs cross) | `run_03` | `results/figures/fig_within_vs_cross_gain.png` |
 
-## Reference values (Combined WF1, %)
-
-| Method / K | IEMOCAP | MELD | Combined |
-|------------|--------:|-----:|---------:|
-| Best-ZS | 56.31 | 64.92 | 60.26 |
-| InsideOut (4-model avg) | 51.58 | 51.81 | 51.72 |
-| MPAR | 56.52 | 64.26 | 61.14 |
-| MV-4 | 57.24 | 65.97 | **62.55** |
-| MV-K K=1…4 | — | — | 59.93 / 60.86 / 62.08 / 62.55 |
-| MV-3-Phase0 | 56.98 | 65.07 | 61.80 |
-| MPAR-Phase0 | 57.65 | 65.12 | 62.10 |
-
-Commercial API models may drift; small numeric differences are expected.
+All table and figure numbers are **computed from cached Phase-1 JSON** (no hardcoded WF1 in plotting scripts).
 
 ## Protocol
 
-- **MV-K tie-break**: per-dataset highest single-model WF1 within the K-model subset.
-- **MV-3-Phase0 / 3-qwen MV**: ties → claude slot (`tie_idx=0`).
-- **MPAR-Phase0**: majority vote on `phase0_labels` in MPAR logs; agent priority by Combined WF1.
+- **MV-K / MPAR-MV-3 / MPAR-ZS-MV-3 / InsideOut-MV-5**: on vote ties, sort tied labels lexicographically and pick uniformly at random with `random.Random(seed + offset + i).choice(T)`. Global seed `8172026`; IEMOCAP offset `0`, MELD offset `1623` (utterance index in cached JSON order).
+- **MV-3-Qwen (within-model, Fig. 3)**: majority vote over three Qwen ZS runs; ties use `tie_idx=0` (same backbone).
 - **Fair MV-K**: mean over C(4,K) combos per run, then mean over 3 runs.
 - **Combined WF1**: concatenate IEMOCAP + MELD (N = 4,233).
+- **Best-ZS**: per column, best single-model 3-run mean WF1 on that split.
+
+Commercial API models may drift; numeric results may differ from the paper while following the same protocol.
 
 ## Troubleshooting
 

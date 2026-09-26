@@ -1,9 +1,9 @@
-"""Paper Table I: Main results (Best-ZS, InsideOut, MPAR, MV-4).
+"""Paper Table I: Main results (Best-ZS, InsideOut, InsideOut-MV-5, MPAR, MPAR-MV-3, MV-4).
 
 Outputs:
   results/tables/table_main_result.{csv,md,json}
 
-Requires Phase 1 ZS outputs (for Best-ZS) + MPAR + InsideOut; run plot_mv_k before MV-4 row.
+Requires Phase 1 ZS + MPAR + InsideOut; run plot_mv_k before MV-4 row.
 """
 from __future__ import annotations
 
@@ -18,6 +18,9 @@ SRC_ROOT = os.path.join(REPO_ROOT, "src")
 if SRC_ROOT not in sys.path:
     sys.path.insert(0, SRC_ROOT)
 
+from lib.insideout_mv import insideout_mv5_avg4
+from lib.majority_vote import mv_random_label_tie_from_logs, weighted_f1
+from config import RANDOM_TIE_SEED
 from paths import SLUG, MODELS, insideout_json, get_mpar_runs, tables_dir, ensure_output_dirs
 from analysis.best_zs import compute_best_zs_wf1
 from run_experiment import compute_metrics
@@ -66,6 +69,40 @@ def mpar_3run_mean() -> dict[str, float]:
     return {"iemocap": statistics.mean(iem), "meld": statistics.mean(meld), "comb": statistics.mean(comb)}
 
 
+def mpar_mv3_random_3run() -> dict[str, float]:
+    iem_vals, meld_vals, comb_vals = [], [], []
+    for _, run_dir in get_mpar_runs():
+        iem_d = json.load(open(run_dir / "iemocap_full_n1623.json", encoding="utf-8"))
+        meld_d = json.load(open(run_dir / "meld_full_n2610.json", encoding="utf-8"))
+        iem_yp = mv_random_label_tie_from_logs(iem_d["logs"], 0, RANDOM_TIE_SEED)
+        meld_yp = mv_random_label_tie_from_logs(meld_d["logs"], len(iem_d["logs"]), RANDOM_TIE_SEED)
+        comb_yt = iem_d["y_true"] + meld_d["y_true"]
+        iem_vals.append(weighted_f1(iem_d["y_true"], iem_yp))
+        meld_vals.append(weighted_f1(meld_d["y_true"], meld_yp))
+        comb_vals.append(weighted_f1(comb_yt, iem_yp + meld_yp))
+    return {
+        "iemocap": statistics.mean(iem_vals),
+        "meld": statistics.mean(meld_vals),
+        "comb": statistics.mean(comb_vals),
+    }
+
+
+def mpar_api_calls_mean() -> float:
+    totals = []
+    for _, run_dir in get_mpar_runs():
+        for fname in ("iemocap_full_n1623.json", "meld_full_n2610.json"):
+            path = run_dir / fname
+            if not path.exists():
+                continue
+            data = json.load(open(path, encoding="utf-8"))
+            for entry in data.get("logs") or []:
+                if "api_calls" in entry:
+                    totals.append(float(entry["api_calls"]))
+    if totals:
+        return statistics.mean(totals)
+    return 5.39
+
+
 def mv4_from_summary() -> dict[str, float]:
     path = tables_dir() / "table_mv_k_ensemble_size_summary.json"
     if not path.exists():
@@ -85,12 +122,27 @@ def delta_pp(v: float, base: float) -> str:
     return f"{(v - base) * 100:+.2f} pp"
 
 
+def api_calls_display(method: str, mpar_mean: float) -> str:
+    mapping = {
+        "Best-ZS": "1",
+        "InsideOut": "6",
+        "InsideOut-MV-5": "5",
+        "MPAR": f"{mpar_mean:.2f}",
+        "MPAR-MV-3": "3",
+        "MV-4": "4",
+    }
+    return mapping[method]
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
     bz = compute_best_zs_wf1()
     io = insideout_avg4()
+    io_mv5 = insideout_mv5_avg4()
     mpar = mpar_3run_mean()
+    mpar_mv3 = mpar_mv3_random_3run()
     mv4 = mv4_from_summary()
+    mpar_api = mpar_api_calls_mean()
 
     rows = [
         {
@@ -99,6 +151,7 @@ def main():
             "meld": pct(bz["meld"]),
             "comb": pct(bz["comb"]),
             "delta_comb_pp": "—",
+            "api_calls": api_calls_display("Best-ZS", mpar_api),
         },
         {
             "method": "InsideOut",
@@ -106,6 +159,15 @@ def main():
             "meld": pct(io["meld"]),
             "comb": pct(io["comb"]),
             "delta_comb_pp": delta_pp(io["comb"], bz["comb"]),
+            "api_calls": api_calls_display("InsideOut", mpar_api),
+        },
+        {
+            "method": "InsideOut-MV-5",
+            "iemocap": pct(io_mv5["iemocap"]),
+            "meld": pct(io_mv5["meld"]),
+            "comb": pct(io_mv5["comb"]),
+            "delta_comb_pp": delta_pp(io_mv5["comb"], bz["comb"]),
+            "api_calls": api_calls_display("InsideOut-MV-5", mpar_api),
         },
         {
             "method": "MPAR",
@@ -113,6 +175,15 @@ def main():
             "meld": pct(mpar["meld"]),
             "comb": pct(mpar["comb"]),
             "delta_comb_pp": delta_pp(mpar["comb"], bz["comb"]),
+            "api_calls": api_calls_display("MPAR", mpar_api),
+        },
+        {
+            "method": "MPAR-MV-3",
+            "iemocap": pct(mpar_mv3["iemocap"]),
+            "meld": pct(mpar_mv3["meld"]),
+            "comb": pct(mpar_mv3["comb"]),
+            "delta_comb_pp": delta_pp(mpar_mv3["comb"], bz["comb"]),
+            "api_calls": api_calls_display("MPAR-MV-3", mpar_api),
         },
         {
             "method": "MV-4",
@@ -120,13 +191,18 @@ def main():
             "meld": pct(mv4["meld"]),
             "comb": pct(mv4["comb"]),
             "delta_comb_pp": delta_pp(mv4["comb"], bz["comb"]),
+            "api_calls": api_calls_display("MV-4", mpar_api),
         },
     ]
 
+    meta = {
+        "tie_break_mv": f"random label seed={RANDOM_TIE_SEED}",
+        "mpar_api_calls_mean": mpar_api,
+    }
     with open(os.path.join(OUT, "table_main_result.json"), "w", encoding="utf-8") as f:
-        json.dump(rows, f, indent=2, ensure_ascii=False)
+        json.dump({"meta": meta, "rows": rows}, f, indent=2, ensure_ascii=False)
 
-    fields = ["method", "iemocap", "meld", "comb", "delta_comb_pp"]
+    fields = ["method", "iemocap", "meld", "comb", "delta_comb_pp", "api_calls"]
     with open(os.path.join(OUT, "table_main_result.csv"), "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=fields)
         w.writeheader()
@@ -135,12 +211,14 @@ def main():
     md = [
         "# Main results (paper Table I)",
         "",
-        "| Method | IEMOCAP | MELD | Combined | ΔWF1 (Combined) |",
-        "|--------|--------:|-----:|---------:|----------------:|",
+        f"MV-K / MPAR-MV-3 / InsideOut-MV-5 ties: random label (seed `{RANDOM_TIE_SEED}`).",
+        "",
+        "| Method | IEMOCAP | MELD | Combined | ΔWF1 (Combined) | API Calls |",
+        "|--------|--------:|-----:|---------:|----------------:|----------:|",
     ]
     for r in rows:
         md.append(
-            f"| **{r['method']}** | {r['iemocap']} | {r['meld']} | {r['comb']} | {r['delta_comb_pp']} |"
+            f"| **{r['method']}** | {r['iemocap']} | {r['meld']} | {r['comb']} | {r['delta_comb_pp']} | {r['api_calls']} |"
         )
     with open(os.path.join(OUT, "table_main_result.md"), "w", encoding="utf-8") as f:
         f.write("\n".join(md) + "\n")

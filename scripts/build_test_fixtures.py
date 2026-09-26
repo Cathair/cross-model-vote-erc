@@ -23,6 +23,7 @@ from run_experiment import compute_metrics
 RUNS = ["run1", "run2", "run3"]
 AGENTS = ["SVA", "CIA", "LRA"]
 PHASE0_MAP = {"SVA": "claude", "CIA": "qwen", "LRA": "gpt4o"}
+EKMAN = ("anger", "disgust", "fear", "happiness", "sadness")
 
 
 def _shift_labels(labels: list[str], offset: int, vocab: list[str]) -> list[str]:
@@ -36,7 +37,16 @@ def _shift_labels(labels: list[str], offset: int, vocab: list[str]) -> list[str]
     return out
 
 
-def _write_pred_json(path: Path, method: str, model: str, dataset: str, y_true: list[str], y_pred: list[str]):
+def _write_pred_json(
+    path: Path,
+    method: str,
+    model: str,
+    dataset: str,
+    y_true: list[str],
+    y_pred: list[str],
+    *,
+    logs: list | None = None,
+):
     path.parent.mkdir(parents=True, exist_ok=True)
     metrics = compute_metrics(y_true, y_pred)
     payload = {
@@ -46,10 +56,22 @@ def _write_pred_json(path: Path, method: str, model: str, dataset: str, y_true: 
         "y_true": y_true,
         "y_pred": y_pred,
         "metrics": metrics,
-        "logs": [],
+        "logs": logs or [],
         "errors": [],
     }
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+
+def _insideout_logs(yt: list[str], yp: list[str], off: int, vocab: list[str]) -> list[dict]:
+    logs = []
+    for i, lab in enumerate(yt):
+        agent_outputs = {}
+        for j, emo in enumerate(EKMAN):
+            agent_outputs[emo] = {
+                "emotion": _shift_labels([lab], off + j + i % 2, vocab)[0],
+            }
+        logs.append({"agent_outputs": agent_outputs, "true_label": lab, "pred_label": yp[i]})
+    return logs
 
 
 def build(results_root: Path) -> None:
@@ -78,8 +100,17 @@ def build(results_root: Path) -> None:
                 if run == "run1":
                     sa_path = results_root / "sa" / slug / run / f"{ds}_singleagent_{slug}_n{n}.json"
                     _write_pred_json(sa_path, "singleagent", slug, ds, yt, _shift_labels(yt, off + 1, vocab))
+                    io_yp = _shift_labels(yt, off + 2, vocab)
                     io_path = results_root / "insideout" / slug / run / f"{ds}_insideout_{slug}_n{n}.json"
-                    _write_pred_json(io_path, "insideout", slug, ds, yt, _shift_labels(yt, off + 2, vocab))
+                    _write_pred_json(
+                        io_path,
+                        "insideout",
+                        slug,
+                        ds,
+                        yt,
+                        io_yp,
+                        logs=_insideout_logs(yt, io_yp, off, vocab),
+                    )
 
     # MPAR with phase0_labels
     for ri, run in enumerate(RUNS):
@@ -99,14 +130,21 @@ def build(results_root: Path) -> None:
                 # final pred = SVA label shifted
                 pred = _shift_labels([lab], model_offsets["claude"] + ri, vocab)[0]
                 y_pred.append(pred)
-                logs.append({"phase0_labels": p0, "true_label": lab, "pred_label": pred})
+                logs.append(
+                    {
+                        "phase0_labels": p0,
+                        "true_label": lab,
+                        "pred_label": pred,
+                        "api_calls": 5 + (i % 3),
+                    }
+                )
             path = run_dir / fname
             path.parent.mkdir(parents=True, exist_ok=True)
             metrics = compute_metrics(yt, y_pred)
             path.write_text(
                 json.dumps(
                     {
-                        "method": "marc_v3_7",
+                        "method": "mpar",
                         "y_true": yt,
                         "y_pred": y_pred,
                         "metrics": metrics,

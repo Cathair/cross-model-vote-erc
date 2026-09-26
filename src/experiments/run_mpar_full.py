@@ -1,4 +1,4 @@
-"""v3.7 full test set 单轮运行脚本（带 checkpoint + 断点续跑）.
+"""MPAR 全测试集单轮运行脚本（带 checkpoint + 断点续跑）.
 
 用法:
   # 全新运行 IEM + MELD
@@ -52,7 +52,7 @@ def run_dataset(dataset: str, resume: bool = False, force: bool = False):
     strategy = DATASET_DEFAULT_STRATEGY[dataset]
     all_samples = load_dataset(dataset, DATA_ROOT, "test", strategy)
     n_total = len(all_samples)
-    tag = f"v37_{dataset}_full"
+    tag = f"mpar_{dataset}_full"
     os.makedirs(OUT_DIR, exist_ok=True)
     out_path = os.path.join(OUT_DIR, f"{dataset}_full_n{n_total}.json")
 
@@ -80,7 +80,7 @@ def run_dataset(dataset: str, resume: bool = False, force: bool = False):
 
     model = MARC_ERC_V3(strategy=strategy)
     _log("=" * 70)
-    _log(f"MARC v3.7 | dataset={dataset} | strategy={strategy} | n={n_total} | start={start_i}")
+    _log(f"MPAR | dataset={dataset} | strategy={strategy} | n={n_total} | start={start_i}")
     _log(f"Agents: {AGENT_MODELS}")
     _log(f"EAA: {EAA_MODEL} | base_prior: {BASE_ROLE_WEIGHT}")
     _log(f"Retry: sample_max={SAMPLE_MAX_RETRIES} sample_timeout={SAMPLE_TIMEOUT_SEC:.0f}s "
@@ -136,8 +136,8 @@ def run_dataset(dataset: str, resume: bool = False, force: bool = False):
     behavior = behavior_summary(logs)
 
     result = {
-        "method": "marc_v3_7",
-        "architecture": "v3.7",
+        "method": "mpar",
+        "architecture": "mpar",
         "architecture_version": ARCHITECTURE_VERSION,
         "metrics": metrics,
         "y_true": y_true,
@@ -176,7 +176,7 @@ def run_dataset(dataset: str, resume: bool = False, force: bool = False):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="v3.7 full test set 1-run")
+    parser = argparse.ArgumentParser(description="MPAR full test set 1-run")
     parser.add_argument("--dataset", choices=["iemocap", "meld", "both"], default="both")
     parser.add_argument("--resume", action="store_true", help="resume from checkpoint")
     parser.add_argument("--force", action="store_true", help="overwrite existing output")
@@ -185,11 +185,11 @@ def main():
     datasets = ["iemocap", "meld"] if args.dataset == "both" else [args.dataset]
     for ds in datasets:
         _log(f"\n{'='*70}")
-        _log(f"Starting v3.7 full test set: {ds}")
+        _log(f"Starting MPAR full test set: {ds}")
         _log(f"{'='*70}")
         run_dataset(ds, resume=args.resume, force=args.force)
 
-    _log(f"\nDONE v3.7 full test set: {args.dataset}")
+    _log(f"\nDONE MPAR full test set: {args.dataset}")
 
 
 if __name__ == "__main__":

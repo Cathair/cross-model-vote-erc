@@ -87,3 +87,10 @@ def get_label_list(strategy_name: str) -> list:
 
 def get_label_map(strategy_name: str) -> dict:
     return LABEL_STRATEGIES[strategy_name].copy()
+
+
+# ==================== MV tie-break (paper §3.3.4) ====================
+# Random label among tied candidates; seed_i = RANDOM_TIE_SEED + offset + i
+RANDOM_TIE_SEED = 8172026
+IEMOCAP_SAMPLE_OFFSET = 0
+MELD_SAMPLE_OFFSET = 1623  # N_IEM test utterances (global index for MELD)

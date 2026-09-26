@@ -1,15 +1,15 @@
-"""MARC v3 配置：模型、先验、阈值、EAA 调用策略."""
+"""MPAR 配置：模型槽位、先验、阈值、EAA 调用策略."""
 import os
 import sys
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from config import get_label_list, DATASET_DEFAULT_STRATEGY, TEMPERATURE, MAX_RETRIES  # noqa: E402
 
-ARCHITECTURE_VERSION = "v3.7"
+ARCHITECTURE_VERSION = "mpar"
 
 # ---------- 模型分配（仅限等价性报告 §二 四模型，一模型一槽位）----------
 # 四模型：gpt-4o · gemini-2.5-flash-lite · claude-3-haiku-20240307 · qwen-plus
-# 约束：v3 pipeline 不得使用上述四模型以外的 API ID（含 LRA）。
+# 约束：MPAR pipeline 不得使用上述四模型以外的 API ID（含 LRA）。
 # 统计：12 对 Acc + 12 对 W-F1 全部 ns（等价性验证，见论文补充材料）
 
 V3_ALLOWED_MODELS = (
@@ -53,16 +53,16 @@ PRAG_LRA_FACTOR = 1.0
 # ---------- 阈值 ----------
 TAU_S = 0.7           # sarcasm_likelihood 触发讨论 / base 修正
 TAU_SSPEC = float(os.environ.get("MARC_TAU_SSPEC", "0.40"))      # label_specificity 低于此视为证据不专属 → 可触发讨论（§六 离线优化：0.6→0.40；可用 MARC_TAU_SSPEC 覆盖）
-TAU_G = float(os.environ.get("MARC_TAU_G", "0.65"))          # v3.5 默认 0.65（v3.2@0.4 仍为 0.4，见 marc_v3/）
+TAU_G = float(os.environ.get("MARC_TAU_G", "0.65"))
 # P2：高唤醒 utterance 下抑制 neutral 等（IEM + MELD 统一规则）
 P2_AROUSAL_GATE = os.environ.get("MARC_P2_AROUSAL", "1") == "1"
 
 # 跳过 Deep 讨论（两数据集相同，MARC_SKIP_DEEP=1；MARC_IEM_NO_DEEP 兼容旧名）
 SKIP_DEEP = os.environ.get("MARC_SKIP_DEEP", os.environ.get("MARC_IEM_NO_DEEP", "0")) == "1"
 # Deep 路径决策（两数据集相同）：fusion | post21_minority | post21_cia
-# v3.7 默认 post21_cia：Deep 讨论后 2:1 投票时采用 CIA 标签（offline sweep 最优）
+# 默认 post21_cia：Deep 讨论后 2:1 投票时采用 CIA 标签
 DEEP_MODE = os.environ.get("MARC_DEEP_MODE", "post21_cia")
-# Fast 融合 margin 低于阈值时回退 CIA（v3.7 默认开，margin=0.05）
+# Fast 融合 margin 低于阈值时回退 CIA（默认开，margin=0.05）
 CIA_FALLBACK = os.environ.get("MARC_CIA_FALLBACK", "1") == "1"
 CIA_FALLBACK_MARGIN = float(os.environ.get("MARC_CIA_FALLBACK_MARGIN", "0.05"))
 ORDINAL_MAP = {"high": 1.0, "medium": 0.6, "low": 0.3}
@@ -86,8 +86,7 @@ NO_EAA_PRAG = os.environ.get("MARC_NO_EAA_PRAG", "0") == "1"
 # Call-2 (EAA-Prag): 三 Agent Phase-0 标签完全一致 → skip；否则执行（NO_EAA_PRAG 时始终 skip）
 
 # ---------- 混淆对表 ----------
-# v3.6.1 清理：删除按 strategy 分表的 CONFUSION_PAIRS（数据集特殊处理 + 标签特殊处理）。
-# Discussion 现在完全依赖 Phase-0 动态候选 + evidence 比较，无固定混淆对 hint。
+# CONFUSION_PAIRS 已移除；讨论路由依赖 Phase-0 动态候选 + evidence 比较。
 CONFUSION_PAIRS = {}
 
 AGENT_NAMES = ("SVA", "CIA", "LRA")

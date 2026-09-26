@@ -1,4 +1,4 @@
-"""MARC v3 Prompts：Phase0 / EAA / 动态 evidence 讨论（无 per-dataset 硬编码 Rubric）."""
+"""MPAR Prompts：Phase0 / EAA / 动态 evidence 讨论."""
 
 # Phase 0 — 与 v1 角色一致，不含混淆对 Rubric
 SVA_PROMPT_V3 = """You are an expert in Speaker Viewpoint sentiment analysis. When analyzing the target utterance:

@@ -1,4 +1,4 @@
-"""MARC ERC v3 主流程."""
+"""MPAR 主流程."""
 from typing import Dict, List, Optional, Tuple
 
 from config import get_label_list
@@ -51,7 +51,7 @@ class MARC_ERC_V3:
         context = format_context(context_records)
         api_calls = 0
         meta: dict = {
-            "architecture": "v3",
+            "architecture": "mpar",
             "architecture_version": ARCHITECTURE_VERSION,
             "strategy": self.strategy,
             "phases": {},

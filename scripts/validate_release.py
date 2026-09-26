@@ -112,15 +112,17 @@ def test_data_load() -> None:
     assert len(load_dataset("meld", data_root, "test", "meld_raw")) == 2610
 
 
-def test_mv3_phase0_tie_break() -> None:
-    """MV-3-Phase0 must use tie_idx=0 (claude), not per-dataset WF1 tie-break."""
-    from analysis.table_prompt_ablation import majority_vote
+def test_random_label_tie_break() -> None:
+    """Paper random tie-break must be deterministic (seed 8172026)."""
+    from config import RANDOM_TIE_SEED
+    from lib.majority_vote import majority_vote_random_label
 
-    # Three-way tie at index 0: tie_idx=0 -> first list (claude slot)
-    preds = [["happy", "sad"], ["happy", "angry"], ["happy", "neutral"]]
-    assert majority_vote(preds, tie_idx=0) == ["happy", "sad"]
-    # tie_idx=2 would differ on second position
-    assert majority_vote(preds, tie_idx=2) == ["happy", "neutral"]
+    preds = [["a", "x"], ["b", "x"], ["a", "y"]]
+    out = majority_vote_random_label(preds, sample_offset=0, seed=RANDOM_TIE_SEED)
+    out2 = majority_vote_random_label(preds, sample_offset=0, seed=RANDOM_TIE_SEED)
+    assert out == out2
+    assert out[0] in ("a", "b")
+    assert out[1] in ("x", "y")
 
 
 def test_majority_vote() -> None:
@@ -232,7 +234,7 @@ def main() -> int:
         ("python imports", test_imports),
         ("dataset load (1623 + 2610)", test_data_load),
         ("majority vote utilities", test_majority_vote),
-        ("MV-3-Phase0 tie-break (tie_idx=0)", test_mv3_phase0_tie_break),
+        ("random label MV tie-break", test_random_label_tie_break),
         ("LLM cache passthrough", test_cache_llm_passthrough),
         ("no hardcoded API secrets", test_no_secrets),
         ("API runners cache/resume", test_experiment_runners_have_cache_and_resume),

@@ -1,8 +1,10 @@
 # Cross-Model Vote ERC
 
-Reproduction code for *Cross-Model Majority Voting as a Necessary Baseline for Multi-Agent Emotion Recognition in Conversation*.
+Reproduction code for *Cross-Model Majority Voting as a Strong Baseline for Multi-Agent Emotion Recognition in Conversation*.
 
 Compares zero-shot (ZS), role-prompt single-agent (SA), cross-model majority voting (MV-K), and MPAR on IEMOCAP and MELD test sets (four commercial LLMs, temperature = 0).
+
+This repository ships **code and test splits only**—not precomputed experiment JSON. Run Phase 1 (API inference) to populate `results/`, then Phase 2 for tables and figures.
 
 ## Setup
 

@@ -1,4 +1,4 @@
-"""MARC v3 LLM 客户端与 Agent."""
+"""MPAR LLM 客户端与 Agent."""
 import os
 import time
 from typing import Dict, Optional
@@ -21,7 +21,7 @@ from .utils_v3 import parse_json_response, extract_emotion, validate_label
 ANTHROPIC_BASE_URL = os.environ.get("OPENAI_API_BASE", os.environ.get("ANTHROPIC_BASE_URL", "https://api.openai.com/v1"))
 ANTHROPIC_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 
-# v3.7: API 调用超时 180s（3 分钟），重试 3 次
+# API 调用超时 180s（3 分钟），重试 3 次
 API_CALL_TIMEOUT = int(os.environ.get("MARC_API_TIMEOUT", "180"))
 
 

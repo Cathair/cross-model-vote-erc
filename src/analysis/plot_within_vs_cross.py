@@ -22,7 +22,8 @@ SRC_ROOT = os.path.join(REPO_ROOT, "src")
 if SRC_ROOT not in sys.path:
     sys.path.insert(0, SRC_ROOT)
 
-from run_experiment import compute_metrics
+from config import MELD_SAMPLE_OFFSET, RANDOM_TIE_SEED
+from lib.majority_vote import majority_vote, majority_vote_random_label, weighted_f1
 from paths import tables_dir, figures_dir, SLUG, MODELS, RUNS, zs_json, ensure_output_dirs, load_result_json
 
 ensure_output_dirs()
@@ -34,12 +35,10 @@ import csv
 import json
 import os
 import statistics
-from collections import Counter
 from itertools import combinations
 
 import matplotlib.pyplot as plt
 import numpy as np
-from sklearn.metrics import f1_score
 
 
 def load_zs(run: str, ds: str, model: str) -> dict:
@@ -49,34 +48,19 @@ def load_zs(run: str, ds: str, model: str) -> dict:
     )
 
 
-def wf1(yt, yp):
-    return f1_score(yt, yp, average="weighted", zero_division=0)
-
-
-def majority_vote(preds_list, tie_idx: int = 0):
-    out = []
-    for i in range(len(preds_list[0])):
-        votes = [p[i] for p in preds_list]
-        c = Counter(votes).most_common()
-        mx = c[0][1]
-        winners = [lab for lab, cnt in c if cnt == mx]
-        out.append(winners[0] if len(winners) == 1 else preds_list[tie_idx][i])
-    return out
-
-
 def qwen_3run_mean() -> dict[str, float]:
     """qwen-ZS 3-run WF1 mean per dataset."""
     out = {}
     for ds in ("iemocap", "meld"):
         out[ds] = statistics.mean(
-            wf1(load_zs(r, ds, "qwen")["y_true"], load_zs(r, ds, "qwen")["y_pred"])
+            weighted_f1(load_zs(r, ds, "qwen")["y_true"], load_zs(r, ds, "qwen")["y_pred"])
             for r in RUNS
         )
     comb = []
     for r in RUNS:
         d_i = load_zs(r, "iemocap", "qwen")
         d_m = load_zs(r, "meld", "qwen")
-        comb.append(wf1(d_i["y_true"] + d_m["y_true"], d_i["y_pred"] + d_m["y_pred"]))
+        comb.append(weighted_f1(d_i["y_true"] + d_m["y_true"], d_i["y_pred"] + d_m["y_pred"]))
     out["comb"] = statistics.mean(comb)
     return out
 
@@ -87,14 +71,14 @@ def three_qwen_mv() -> dict[str, float]:
     for ds in ("iemocap", "meld"):
         preds = [load_zs(r, ds, "qwen")["y_pred"] for r in RUNS]
         yt = load_zs("run1", ds, "qwen")["y_true"]
-        out[ds] = wf1(yt, majority_vote(preds, tie_idx=0))
+        out[ds] = weighted_f1(yt, majority_vote(preds, tie_idx=0))
 
     yt_i = load_zs("run1", "iemocap", "qwen")["y_true"]
     yt_m = load_zs("run1", "meld", "qwen")["y_true"]
     pl_i = [load_zs(r, "iemocap", "qwen")["y_pred"] for r in RUNS]
     pl_m = [load_zs(r, "meld", "qwen")["y_pred"] for r in RUNS]
     yp = majority_vote(pl_i, 0) + majority_vote(pl_m, 0)
-    out["comb"] = wf1(yt_i + yt_m, yp)
+    out["comb"] = weighted_f1(yt_i + yt_m, yp)
     return out
 
 
@@ -105,27 +89,26 @@ def mv3_fair_3run() -> dict[str, float]:
     for run in RUNS:
         for ds in ("iemocap", "meld"):
             yt = load_zs(run, ds, "gemini")["y_true"]
-            single = {m: wf1(yt, load_zs(run, ds, m)["y_pred"]) for m in MODELS}
+            offset = 0 if ds == "iemocap" else MELD_SAMPLE_OFFSET
             wf1s = []
             for combo in combinations(MODELS, 3):
                 pl = [load_zs(run, ds, m)["y_pred"] for m in combo]
-                tb = list(combo).index(max(combo, key=lambda m: single[m]))
-                wf1s.append(wf1(yt, majority_vote(pl, tb)))
+                wf1s.append(
+                    weighted_f1(yt, majority_vote_random_label(pl, offset, RANDOM_TIE_SEED))
+                )
             per_run[ds].append(statistics.mean(wf1s))
 
         yt_i = load_zs(run, "iemocap", "gemini")["y_true"]
         yt_m = load_zs(run, "meld", "gemini")["y_true"]
         yt = yt_i + yt_m
-        si = {m: wf1(yt_i, load_zs(run, "iemocap", m)["y_pred"]) for m in MODELS}
-        sm = {m: wf1(yt_m, load_zs(run, "meld", m)["y_pred"]) for m in MODELS}
         comb_wf1s = []
         for combo in combinations(MODELS, 3):
-            tb_i = list(combo).index(max(combo, key=lambda m: si[m]))
-            tb_m = list(combo).index(max(combo, key=lambda m: sm[m]))
             pl_i = [load_zs(run, "iemocap", m)["y_pred"] for m in combo]
             pl_m = [load_zs(run, "meld", m)["y_pred"] for m in combo]
-            yp = majority_vote(pl_i, tb_i) + majority_vote(pl_m, tb_m)
-            comb_wf1s.append(wf1(yt, yp))
+            yp = majority_vote_random_label(pl_i, 0, RANDOM_TIE_SEED) + majority_vote_random_label(
+                pl_m, len(yt_i), RANDOM_TIE_SEED
+            )
+            comb_wf1s.append(weighted_f1(yt, yp))
         per_run["comb"].append(statistics.mean(comb_wf1s))
 
     return {ds: statistics.mean(per_run[ds]) for ds in per_run}
@@ -152,7 +135,8 @@ def build_rows() -> list[dict]:
             "three_qwen_delta_pp": round((w - b) * 100, 2),
             "mv3_delta_pp": round((c - b) * 100, 2),
             "baseline_note": "qwen-ZS 3-run mean (all datasets)",
-            "mv3_protocol": "fair-3run",
+            "mv3_protocol": "fair-3run-random-label-tie",
+            "within_tie": "tie_idx=0 (same-model 3-run MV-3-Qwen)",
         })
     return rows
 

@@ -1,4 +1,4 @@
-"""Paper Table: MV-3-Phase0 vs MPAR-Phase0 (prompt ablation).
+"""Paper Table 3: MPAR-MV-3 vs MPAR-ZS-MV-3 (random label tie-break).
 
 Outputs:
   results/tables/table_prompt_ablation.{csv,md,json}
@@ -10,14 +10,14 @@ import json
 import os
 import statistics
 import sys
-from collections import Counter
-from typing import Dict, List
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 SRC_ROOT = os.path.join(REPO_ROOT, "src")
 if SRC_ROOT not in sys.path:
     sys.path.insert(0, SRC_ROOT)
 
+from config import MELD_SAMPLE_OFFSET, RANDOM_TIE_SEED
+from lib.majority_vote import majority_vote_random_label, mv_random_label_tie_from_logs, weighted_f1
 from paths import SLUG, get_mpar_runs, tables_dir, zs_json, ensure_output_dirs, load_result_json
 from run_experiment import compute_metrics
 
@@ -26,8 +26,6 @@ OUT = str(tables_dir())
 
 AGENTS = ["SVA", "CIA", "LRA"]
 PHASE0_SLOTS = {"SVA": "claude", "CIA": "qwen", "LRA": "gpt4o"}
-# Paper protocol: MV-3-Phase0 uses fixed tie_idx=0 (claude / SVA slot), not MV-K WF1 tie-break.
-PHASE0_TIE_IDX = 0
 PHASE0_SLUGS = {a: SLUG[m] for a, m in PHASE0_SLOTS.items()}
 _ZS_HINT = "scripts/phase1/run_01_zs.sh"
 _MPAR_HINT = "scripts/phase1/run_03_mpar.sh"
@@ -43,79 +41,27 @@ def load_pair(iem_path: str, meld_path: str):
     return iem, meld
 
 
-def majority_vote(preds_list, tie_idx: int = 0):
-    out = []
-    for i in range(len(preds_list[0])):
-        votes = [p[i] for p in preds_list]
-        c = Counter(votes).most_common()
-        mx = c[0][1]
-        winners = [lab for lab, cnt in c if cnt == mx]
-        out.append(winners[0] if len(winners) == 1 else preds_list[tie_idx][i])
-    return out
-
-
-def phase0_preds(logs: list) -> Dict[str, List[str]]:
-    return {a: [entry["phase0_labels"][a] for entry in logs] for a in AGENTS}
-
-
-def agent_priority(metrics: Dict[str, dict]) -> List[str]:
-    return sorted(AGENTS, key=lambda a: -metrics[a]["weighted_f1"])
-
-
-def mv_agent_tie(labels: Dict[str, str], priority: List[str]) -> str:
-    votes = Counter(labels.values())
-    max_cnt = max(votes.values())
-    winners = [lab for lab, c in votes.items() if c == max_cnt]
-    if len(winners) == 1:
-        return winners[0]
-    for agent in priority:
-        if labels[agent] in winners:
-            return labels[agent]
-    return sorted(winners)[0]
-
-
-def p0_mv_preds(logs: list, priority: List[str]) -> List[str]:
-    return [mv_agent_tie(entry["phase0_labels"], priority) for entry in logs]
-
-
-def eval_p0_mv(iem_logs, iem_yt, meld_logs, meld_yt) -> dict:
-    comb_yt = iem_yt + meld_yt
-    comb_preds = {
-        a: phase0_preds(iem_logs)[a] + phase0_preds(meld_logs)[a] for a in AGENTS
-    }
-    comb_m = {a: compute_metrics(comb_yt, comb_preds[a]) for a in AGENTS}
-    pri = agent_priority(comb_m)
-    iem_yp = p0_mv_preds(iem_logs, pri)
-    meld_yp = p0_mv_preds(meld_logs, pri)
-    return {
-        "iem": compute_metrics(iem_yt, iem_yp)["weighted_f1"],
-        "meld": compute_metrics(meld_yt, meld_yp)["weighted_f1"],
-        "comb": compute_metrics(comb_yt, iem_yp + meld_yp)["weighted_f1"],
-    }
-
-
-def compute_mv3_phase0_3run() -> dict:
-    """Pure ZS MV over claude / qwen / gpt4o (MPAR Phase-0 slots).
-
-    Tie-break on equal votes: fixed tie_idx=0 (claude), matching paper mv_simple(..., tie_idx=0).
-    """
+def compute_mpar_mv3_random_3run() -> dict:
     per_run = []
-    for run in ("run1", "run2", "run3"):
-        ds_metrics = {}
-        for ds in ("iemocap", "meld"):
-            preds = [_load_zs(agent, run, ds)["y_pred"] for agent in PHASE0_SLOTS]
-            yt = _load_zs("SVA", run, ds)["y_true"]
-            yp = majority_vote(preds, tie_idx=PHASE0_TIE_IDX)
-            ds_metrics[ds] = compute_metrics(yt, yp)["weighted_f1"]
-
-        iem = _load_zs("SVA", run, "iemocap")
-        meld = _load_zs("SVA", run, "meld")
-        pl_i = [_load_zs(a, run, "iemocap")["y_pred"] for a in PHASE0_SLOTS]
-        pl_m = [_load_zs(a, run, "meld")["y_pred"] for a in PHASE0_SLOTS]
-        yp = majority_vote(pl_i, tie_idx=PHASE0_TIE_IDX) + majority_vote(pl_m, tie_idx=PHASE0_TIE_IDX)
-        comb = compute_metrics(iem["y_true"] + meld["y_true"], yp)["weighted_f1"]
-        per_run.append({"run": run, "iem": ds_metrics["iemocap"], "meld": ds_metrics["meld"], "comb": comb})
-
+    for run_id, run_dir in get_mpar_runs():
+        iem_path = run_dir / "iemocap_full_n1623.json"
+        meld_path = run_dir / "meld_full_n2610.json"
+        if not iem_path.exists() or not meld_path.exists():
+            raise FileNotFoundError(
+                f"MPAR outputs missing for {run_id}: {run_dir}. Run: bash {_MPAR_HINT}"
+            )
+        iem, meld = load_pair(str(iem_path), str(meld_path))
+        iem_yp = mv_random_label_tie_from_logs(iem["logs"], 0, RANDOM_TIE_SEED)
+        meld_yp = mv_random_label_tie_from_logs(meld["logs"], len(iem["logs"]), RANDOM_TIE_SEED)
+        comb_yt = iem["y_true"] + meld["y_true"]
+        per_run.append(
+            {
+                "run": run_id,
+                "iem": weighted_f1(iem["y_true"], iem_yp),
+                "meld": weighted_f1(meld["y_true"], meld_yp),
+                "comb": weighted_f1(comb_yt, iem_yp + meld_yp),
+            }
+        )
     return {
         "iem": statistics.mean(r["iem"] for r in per_run),
         "meld": statistics.mean(r["meld"] for r in per_run),
@@ -124,27 +70,35 @@ def compute_mv3_phase0_3run() -> dict:
     }
 
 
-def compute_mpar_phase0_3run() -> dict:
-    iem_vals, meld_vals, comb_vals = [], [], []
+def compute_mpar_zs_mv3_random_3run() -> dict:
+    """Pure ZS over Phase-0 slots (claude / qwen / gpt4o), random label tie."""
     per_run = []
-    for run_id, run_dir in get_mpar_runs():
-        iem_path = run_dir / "iemocap_full_n1623.json"
-        meld_path = run_dir / "meld_full_n2610.json"
-        if not iem_path.exists() or not meld_path.exists():
-            raise FileNotFoundError(
-                f"MPAR outputs missing for {run_id}: {run_dir}. "
-                f"Run: bash {_MPAR_HINT}"
-            )
-        iem, meld = load_pair(str(iem_path), str(meld_path))
-        m = eval_p0_mv(iem["logs"], iem["y_true"], meld["logs"], meld["y_true"])
-        iem_vals.append(m["iem"])
-        meld_vals.append(m["meld"])
-        comb_vals.append(m["comb"])
-        per_run.append({"run": run_id, **m})
+    for run in ("run1", "run2", "run3"):
+        ds_metrics: dict[str, dict] = {}
+        n_iem = 0
+        for ds in ("iemocap", "meld"):
+            preds = [_load_zs(agent, run, ds)["y_pred"] for agent in PHASE0_SLOTS]
+            yt = _load_zs("SVA", run, ds)["y_true"]
+            offset = 0 if ds == "iemocap" else n_iem
+            if ds == "iemocap":
+                n_iem = len(yt)
+            yp = majority_vote_random_label(preds, offset, RANDOM_TIE_SEED)
+            ds_metrics[ds] = {"yt": yt, "yp": yp}
+
+        comb_yt = ds_metrics["iemocap"]["yt"] + ds_metrics["meld"]["yt"]
+        comb_yp = ds_metrics["iemocap"]["yp"] + ds_metrics["meld"]["yp"]
+        per_run.append(
+            {
+                "run": run,
+                "iem": compute_metrics(ds_metrics["iemocap"]["yt"], ds_metrics["iemocap"]["yp"])["weighted_f1"],
+                "meld": compute_metrics(ds_metrics["meld"]["yt"], ds_metrics["meld"]["yp"])["weighted_f1"],
+                "comb": compute_metrics(comb_yt, comb_yp)["weighted_f1"],
+            }
+        )
     return {
-        "iem": statistics.mean(iem_vals),
-        "meld": statistics.mean(meld_vals),
-        "comb": statistics.mean(comb_vals),
+        "iem": statistics.mean(r["iem"] for r in per_run),
+        "meld": statistics.mean(r["meld"] for r in per_run),
+        "comb": statistics.mean(r["comb"] for r in per_run),
         "per_run": per_run,
     }
 
@@ -153,13 +107,36 @@ def pct(v: float) -> float:
     return round(v * 100, 2)
 
 
-def write_outputs(mv3: dict, mp0: dict) -> None:
+def write_outputs(mpar_mv3: dict, zs_mv3: dict) -> None:
     rows = [
-        {"method": "MV-3-Phase0", "prompt": "none", "iem": pct(mv3["iem"]), "meld": pct(mv3["meld"]), "comb": pct(mv3["comb"])},
-        {"method": "MPAR-Phase0", "prompt": "MPAR Phase-0", "iem": pct(mp0["iem"]), "meld": pct(mp0["meld"]), "comb": pct(mp0["comb"])},
-        {"method": "ΔWF1", "prompt": "—", "iem": pct(mp0["iem"] - mv3["iem"]), "meld": pct(mp0["meld"] - mv3["meld"]), "comb": pct(mp0["comb"] - mv3["comb"])},
+        {
+            "method": "MPAR-ZS-MV-3",
+            "prompt": "none (pure ZS slots)",
+            "iem": pct(zs_mv3["iem"]),
+            "meld": pct(zs_mv3["meld"]),
+            "comb": pct(zs_mv3["comb"]),
+        },
+        {
+            "method": "MPAR-MV-3",
+            "prompt": "MPAR Phase-0 role prompts",
+            "iem": pct(mpar_mv3["iem"]),
+            "meld": pct(mpar_mv3["meld"]),
+            "comb": pct(mpar_mv3["comb"]),
+        },
+        {
+            "method": "ΔWF1",
+            "prompt": "—",
+            "iem": pct(mpar_mv3["iem"] - zs_mv3["iem"]),
+            "meld": pct(mpar_mv3["meld"] - zs_mv3["meld"]),
+            "comb": pct(mpar_mv3["comb"] - zs_mv3["comb"]),
+        },
     ]
-    payload = {"mv3_phase0": mv3, "mpar_phase0": mp0, "rows": rows}
+    payload = {
+        "tie_break": f"random label seed={RANDOM_TIE_SEED}",
+        "mpar_mv3": mpar_mv3,
+        "mpar_zs_mv3": zs_mv3,
+        "rows": rows,
+    }
     with open(os.path.join(OUT, "table_prompt_ablation.json"), "w", encoding="utf-8") as f:
         json.dump(payload, f, indent=2, ensure_ascii=False)
 
@@ -170,7 +147,9 @@ def write_outputs(mv3: dict, mp0: dict) -> None:
         w.writerows(rows)
 
     md = [
-        "# Prompt ablation (paper Table)",
+        "# Prompt ablation (paper Table 3)",
+        "",
+        f"Random label tie-break: seed `{RANDOM_TIE_SEED}` (IEM offset 0, MELD offset {MELD_SAMPLE_OFFSET}).",
         "",
         "| Method | Prompt | IEMOCAP | MELD | Combined |",
         "|--------|--------|--------:|-----:|---------:|",
@@ -185,9 +164,9 @@ def write_outputs(mv3: dict, mp0: dict) -> None:
 
 def main():
     os.makedirs(OUT, exist_ok=True)
-    mv3 = compute_mv3_phase0_3run()
-    mp0 = compute_mpar_phase0_3run()
-    write_outputs(mv3, mp0)
+    mpar_mv3 = compute_mpar_mv3_random_3run()
+    zs_mv3 = compute_mpar_zs_mv3_random_3run()
+    write_outputs(mpar_mv3, zs_mv3)
     print(f"Wrote table_prompt_ablation.* to {OUT}")
 
 

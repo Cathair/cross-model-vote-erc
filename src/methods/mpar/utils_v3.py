@@ -1,4 +1,4 @@
-"""MARC v3 工具函数."""
+"""MPAR 工具函数."""
 import sys
 import os
 

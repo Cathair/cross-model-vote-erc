@@ -22,7 +22,8 @@ SRC_ROOT = os.path.join(REPO_ROOT, "src")
 if SRC_ROOT not in sys.path:
     sys.path.insert(0, SRC_ROOT)
 
-from run_experiment import compute_metrics
+from config import MELD_SAMPLE_OFFSET, RANDOM_TIE_SEED
+from lib.majority_vote import majority_vote_random_label, weighted_f1
 from paths import tables_dir, figures_dir, SLUG, MODELS, RUNS, zs_json, ensure_output_dirs, load_result_json
 from analysis.best_zs import compute_best_zs_pct
 
@@ -39,22 +40,13 @@ import csv
 import json
 import os
 import statistics
-from collections import Counter
 from itertools import combinations
 
 import matplotlib.pyplot as plt
 import numpy as np
-from sklearn.metrics import f1_score
 
 
 N_COMBOS = {1: 4, 2: 6, 3: 4, 4: 1}
-
-# 最优 ZS 3-run 均值（table_rq1_zs_sa.csv）：分数据集 WF1 最高单模型
-REF_LINES = {
-    "iem": {"y": 56.31, "label": "Best-ZS IEM"},
-    "meld": {"y": 64.92, "label": "Best-ZS MELD"},
-    "comb": {"y": 60.26, "label": "Best-ZS Combined"},
-}
 
 COLORS = {"iem": "#EEA599", "meld": "#FAC795", "comb": "#92B4C8"}
 # 参考线用同色系更深色，与 MV-k 曲线区分
@@ -72,42 +64,24 @@ def load_preds(run: str) -> dict:
     return out
 
 
-def wf1(yt, yp):
-    return f1_score(yt, yp, average="weighted", zero_division=0)
-
-
-def majority_vote(preds_list, tie_idx: int):
-    out = []
-    for i in range(len(preds_list[0])):
-        votes = [p[i] for p in preds_list]
-        c = Counter(votes).most_common()
-        mx = c[0][1]
-        winners = [lab for lab, cnt in c if cnt == mx]
-        out.append(winners[0] if len(winners) == 1 else preds_list[tie_idx][i])
-    return out
-
-
 def eval_combo_wf1(preds, combo, ds_key):
-    """ds_key: iem | meld | comb."""
+    """ds_key: iem | meld | comb. Random label tie-break (seed 8172026)."""
     if ds_key == "comb":
         yt_i = preds[("iemocap", MODELS[0])]["y_true"]
         yt_m = preds[("meld", MODELS[0])]["y_true"]
         yt = yt_i + yt_m
-        si = {m: wf1(yt_i, preds[("iemocap", m)]["y_pred"]) for m in MODELS}
-        sm = {m: wf1(yt_m, preds[("meld", m)]["y_pred"]) for m in MODELS}
-        tb_i = list(combo).index(max(combo, key=lambda m: si[m]))
-        tb_m = list(combo).index(max(combo, key=lambda m: sm[m]))
         pl_i = [preds[("iemocap", m)]["y_pred"] for m in combo]
         pl_m = [preds[("meld", m)]["y_pred"] for m in combo]
-        yp = majority_vote(pl_i, tb_i) + majority_vote(pl_m, tb_m)
-        return wf1(yt, yp)
+        yp = majority_vote_random_label(pl_i, 0, RANDOM_TIE_SEED) + majority_vote_random_label(
+            pl_m, len(yt_i), RANDOM_TIE_SEED
+        )
+        return weighted_f1(yt, yp)
 
     ds = "iemocap" if ds_key == "iem" else "meld"
+    offset = 0 if ds == "iemocap" else MELD_SAMPLE_OFFSET
     yt = preds[(ds, MODELS[0])]["y_true"]
-    single = {m: wf1(yt, preds[(ds, m)]["y_pred"]) for m in MODELS}
-    tb = list(combo).index(max(combo, key=lambda m: single[m]))
     pl = [preds[(ds, m)]["y_pred"] for m in combo]
-    return wf1(yt, majority_vote(pl, tb))
+    return weighted_f1(yt, majority_vote_random_label(pl, offset, RANDOM_TIE_SEED))
 
 
 def mv_k_run_level(preds, k: int) -> dict[str, float]:
@@ -149,7 +123,8 @@ def compute_fair_3run_summary() -> tuple[list[dict], dict]:
             "size": k,
             "n_combos": N_COMBOS[k],
             "api_per_sample": k,
-            "protocol": "fair-3run",
+            "protocol": "fair-3run-random-label-tie",
+            "tie_break": f"random label seed={RANDOM_TIE_SEED}",
         }
         for ds in ("iem", "meld", "comb"):
             vals = [r[ds] for r in per_run]
@@ -214,7 +189,7 @@ def save_table(rows: list[dict]) -> None:
         json.dump(rows, f, indent=2, ensure_ascii=False)
 
     fields = [
-        "size", "n_combos", "api_per_sample", "protocol",
+        "size", "n_combos", "api_per_sample", "protocol", "tie_break",
         "iem_mean", "iem_std", "iem_combo_std_mean",
         "meld_mean", "meld_std", "meld_combo_std_mean",
         "comb_mean", "comb_std", "comb_combo_std_mean",
@@ -225,8 +200,7 @@ def save_table(rows: list[dict]) -> None:
         w.writerows(rows)
 
 
-def plot(rows: list[dict], ref_lines: dict | None = None) -> None:
-    ref_lines = ref_lines or REF_LINES
+def plot(rows: list[dict], ref_lines: dict) -> None:
     plt.rcParams.update({
         "font.family": "DejaVu Sans",
         "font.size": 10,

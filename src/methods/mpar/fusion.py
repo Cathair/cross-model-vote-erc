@@ -1,4 +1,4 @@
-"""MARC v3 路由、动态讨论候选、确定性融合."""
+"""MPAR 路由、动态讨论候选、确定性融合."""
 from collections import Counter
 from typing import Dict, List, Optional, Tuple
 
@@ -34,7 +34,7 @@ def dynamic_discussion_allowed(labels: Dict[str, str]) -> List[str]:
 
 
 def infer_soft_confusion_hint(strategy: str, labels: Dict[str, str]) -> Optional[dict]:
-    """v3.6.1 清理：CONFUSION_PAIRS 已删除，本函数恒返回 None。
+    """CONFUSION_PAIRS 已删除，本函数恒返回 None。
 
     保留函数签名以避免调用方改动；soft hint 不再注入 discussion prompt。
     """
@@ -228,7 +228,7 @@ def _apply_p2_arousal_filter(
     strategy: str,
     enabled: bool,
 ) -> Dict[str, float]:
-    """v3.6.1 通用 P2：高唤醒 utterance + Agent 分歧 → 抑制少数派标签。
+    """通用 P2：高唤醒 utterance + Agent 分歧 → 抑制少数派标签。
 
     规则（不依赖 strategy、不依赖固定标签集）：
     1. utterance 含高唤醒线索（!/?/全大写词）才激活

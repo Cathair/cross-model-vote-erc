@@ -1,4 +1,4 @@
-"""MARC v3 分析层：融合置信度、讨论收敛、语用信号等（仅日志/离线分析，不改变预测）."""
+"""MPAR 分析层：融合置信度、讨论收敛、语用信号等（仅日志/离线分析，不改变预测）."""
 from collections import Counter
 from typing import Dict, Optional
 

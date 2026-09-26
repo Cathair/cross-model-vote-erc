@@ -1,9 +1,8 @@
-"""MARC v3.6.1 实验入口.
+"""MPAR 开发/子集实验入口（全量 test 请用 src/experiments/run_mpar_full.py）.
 
-用法:
-  python -m marc_v3_6_1.run_v3 --dataset iemocap
-  python -m marc_v3_6_1.run_v3 --dataset meld --force
-  python -m marc_v3_6_1.run_v3 --dry-run --limit 2
+用法（在仓库根目录）:
+  PYTHONPATH=src python -m methods.mpar.run_v3 --dataset iemocap
+  PYTHONPATH=src python -m methods.mpar.run_v3 --dataset meld --force
 """
 import argparse
 import glob
@@ -40,8 +39,8 @@ from run_experiment import (
 from .marc_v3 import MARC_ERC_V3
 from .config_v3 import ARCHITECTURE_VERSION, AGENT_MODELS, EAA_MODEL, BASE_ROLE_WEIGHT
 
-OUT_DIR = "results/marc_v3_6_1"
-# 0 = 不写 checkpoint（仅最终 JSON 落盘，避免 results/marc_v3 文件过多）
+OUT_DIR = "results/mpar/dev"
+# 0 = 不写 checkpoint（仅最终 JSON 落盘）
 CHECKPOINT_EVERY = 0
 
 
@@ -113,7 +112,7 @@ def _build_log_entry(i, s, pred, meta, fb, sample_sec, attempts_used):
         "enter_discussion": route.get("enter_discussion"),
         "eaa_prag_skipped": route.get("skip_eaa_prag"),
         "soft_confusion_hint": meta.get("soft_confusion_hint"),
-        "confusion_pair": meta.get("soft_confusion_hint"),  # 兼容 v3.0 字段名
+        "confusion_pair": meta.get("soft_confusion_hint"),
         "base_weights": meta.get("base_weights"),
         "fusion": meta.get("fusion"),
         "api_calls": meta.get("api_calls"),
@@ -219,8 +218,8 @@ def run_on_samples(
     behavior = behavior_summary(logs)
 
     return {
-        "method": "marc_v3",
-        "architecture": "v3",
+        "method": "mpar",
+        "architecture": "mpar",
         "metrics": metrics,
         "y_true": y_true,
         "y_pred": y_pred,
@@ -244,7 +243,7 @@ def run_on_samples(
 
 
 def main():
-    parser = argparse.ArgumentParser(description="MARC ERC v3 experiments")
+    parser = argparse.ArgumentParser(description="MPAR subset/dev experiments")
     parser.add_argument("--dataset", choices=["iemocap", "meld"], default="iemocap")
     parser.add_argument("--indices", default=None, help="sample indices JSON")
     parser.add_argument("--limit", type=int, default=None)
@@ -273,8 +272,8 @@ def main():
     full_n = len(samples)
     os.makedirs(OUT_DIR, exist_ok=True)
     n_tag = f"n{full_n}"
-    out_path = args.out or os.path.join(OUT_DIR, f"{args.dataset}_marc_v3_{n_tag}.json")
-    tag = f"v3_{args.dataset}_{n_tag}"
+    out_path = args.out or os.path.join(OUT_DIR, f"{args.dataset}_mpar_{n_tag}.json")
+    tag = f"mpar_{args.dataset}_{n_tag}"
 
     if os.path.exists(out_path) and not args.force and not args.dry_run and not args.resume:
         _log(f"SKIP (exists): {out_path}  (use --force or --resume)")
@@ -283,7 +282,7 @@ def main():
     _log("=" * 70)
     run_n = full_n - args.start_index if args.start_index else full_n
     _log(
-        f"MARC v3 ({ARCHITECTURE_VERSION}) | dataset={args.dataset} | strategy={strategy} | "
+        f"MPAR | dataset={args.dataset} | strategy={strategy} | "
         f"n={full_n} run={run_n} start_index={args.start_index}"
     )
     _log(f"Agents: {AGENT_MODELS}")
@@ -325,7 +324,7 @@ def main():
             f"TieBreak={b.get('tie_break_rate', 0)*100:.1f}%"
         )
         summary_path = os.path.join(
-            OUT_DIR, f"v3_summary_{args.dataset}_{n_tag}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+            OUT_DIR, f"mpar_summary_{args.dataset}_{n_tag}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
         )
         with open(summary_path, "w", encoding="utf-8") as f:
             json.dump({"metrics": m, "behavior": b, "path": out_path, "errors": len(result.get("errors", []))}, f, indent=2)

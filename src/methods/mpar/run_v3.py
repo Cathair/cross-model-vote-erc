@@ -1,9 +1,4 @@
-"""MPAR 开发/子集实验入口（全量 test 请用 src/experiments/run_mpar_full.py）.
-
-用法（在仓库根目录）:
-  PYTHONPATH=src python -m methods.mpar.run_v3 --dataset iemocap
-  PYTHONPATH=src python -m methods.mpar.run_v3 --dataset meld --force
-"""
+"""MPAR dev/subset runner; full test set: src/experiments/run_mpar_full.py."""
 import argparse
 import glob
 import json
@@ -40,7 +35,6 @@ from .marc_v3 import MARC_ERC_V3
 from .config_v3 import ARCHITECTURE_VERSION, AGENT_MODELS, EAA_MODEL, BASE_ROLE_WEIGHT
 
 OUT_DIR = "results/mpar/dev"
-# 0 = 不写 checkpoint（仅最终 JSON 落盘）
 CHECKPOINT_EVERY = 0
 
 

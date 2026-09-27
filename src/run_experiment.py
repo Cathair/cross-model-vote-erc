@@ -16,7 +16,6 @@ from langchain_core.prompts import PromptTemplate
 from sklearn.metrics import f1_score, accuracy_score, classification_report
 
 
-# ==================== 配置 ====================
 SMOKE_TEST_N = 50
 CHECKPOINT_EVERY = 50
 PROGRESS_FLUSH = True
@@ -400,15 +399,7 @@ def run_stratified(
     out_dir: str = None,
     output_path: str = None,
 ) -> dict:
-    """按分层抽样索引运行指定方法（marc / zeroshot / singleagent）
-
-    Args:
-        method: "marc" | "zeroshot" | "singleagent"
-        indices: 样本索引列表
-        indices_file: 或从 JSON 文件加载索引
-        model_config: {"agent_model", "arbiter_model", "agent_temp", "agent_configs", "model", "temperature"}
-        out_dir: 结果保存目录
-    """
+    """Run marc / zeroshot / singleagent on a stratified index subset."""
     if strategy is None:
         strategy = DATASET_DEFAULT_STRATEGY[dataset_name]
     model_config = model_config or {}

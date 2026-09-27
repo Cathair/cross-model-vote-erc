@@ -47,7 +47,7 @@ python scripts/validate_release.py
 
 ZS full run ≈ 50,796 calls (4 models × 3 runs × 4,233 utterances).
 
-## Paper outputs (926.md)
+## Paper outputs
 
 | Artifact | Script | File |
 |----------|--------|------|

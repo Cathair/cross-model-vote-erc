@@ -1,10 +1,4 @@
-"""Paper Table I: Main results (Best-ZS, InsideOut, InsideOut-MV-5, MPAR, MPAR-MV-3, MV-4).
-
-Outputs:
-  results/tables/table_main_result.{csv,md,json}
-
-Requires Phase 1 ZS + MPAR + InsideOut; run plot_mv_k before MV-4 row.
-"""
+"""Table I: main results (requires Phase 1 + run_02 for MV-4 row)."""
 from __future__ import annotations
 
 import csv

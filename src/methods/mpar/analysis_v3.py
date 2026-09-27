@@ -1,4 +1,4 @@
-"""MPAR 分析层：融合置信度、讨论收敛、语用信号等（仅日志/离线分析，不改变预测）."""
+"""Offline MPAR log metrics (does not change predictions)."""
 from collections import Counter
 from typing import Dict, Optional
 
@@ -6,7 +6,7 @@ from .config_v3 import AGENT_NAMES, FUSION_MARGIN_EPSILON
 
 
 def build_prag_brief(prag: Optional[dict]) -> str:
-    """将 EAA-Prag JSON 压缩为讨论 prompt 中的一段可读摘要."""
+    """Summarize EAA-Prag for discussion prompts."""
     if not prag or prag.get("skipped"):
         return "No pragmatics signal (Call-2 skipped or unavailable)."
     return (
@@ -25,7 +25,7 @@ def compute_fusion_analysis(
     discussion_outputs: Optional[Dict[str, dict]] = None,
     margin_epsilon: float = None,
 ) -> dict:
-    """从融合结果提取可离线切片的不确定性指标."""
+    """Uncertainty metrics from fusion detail (logging only)."""
     eps = FUSION_MARGIN_EPSILON if margin_epsilon is None else margin_epsilon
     totals = fusion_detail.get("totals") or {}
     sorted_totals = sorted(totals.items(), key=lambda x: -x[1])

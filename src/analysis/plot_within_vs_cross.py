@@ -1,19 +1,6 @@
 from __future__ import annotations
 
-"""Q3: Within-model vs cross-model ensemble gain.
-
-Compares WF1 **gain (pp)** over **qwen-ZS 3-run mean** (common baseline):
-  - 3-qwen-ZS MV: majority vote across qwen run1/2/3 predictions (within-model)
-  - MV-3: fair 3-run cross-model MV-k (k=3), see plot_mv_k_ensemble_size.py
-
-Outputs:
-  results/figures/fig_within_vs_cross_gain.{png,pdf}
-  results/tables/table_within_vs_cross_gain.{csv,json}
-
-Usage (repo root):
-  bash scripts/phase2/run_03_plot_within_vs_cross.sh
-  python src/analysis/plot_within_vs_cross.py
-"""
+"""Fig. 3: within-model vs cross-model MV gain over Qwen ZS (3-run mean)."""
 import os
 import sys
 

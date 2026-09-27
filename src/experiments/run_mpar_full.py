@@ -1,22 +1,4 @@
-"""MPAR 全测试集单轮运行脚本（带 checkpoint + 断点续跑）.
-
-用法:
-  # 全新运行 IEM + MELD
-  python src/experiments/run_mpar_full.py
-
-  # 仅跑某个数据集
-  python src/experiments/run_mpar_full.py --dataset iemocap
-
-  # 断点续跑（或由 scripts/phase1/run_03_mpar.sh 在检测到 checkpoint 时自动传入）
-  python src/experiments/run_mpar_full.py --resume
-
-环境变量:
-  OPENAI_API_KEY          — API key（必须设置）
-  MARC_CACHE_DIR          — cache 目录（必须设置，与其他 run 隔离）
-  MARC_API_TIMEOUT=180    — API 调用超时（秒）
-  MARC_SAMPLE_MAX_RETRIES=3 — 样本级重试次数
-  MARC_SAMPLE_TIMEOUT_SEC=900 — 样本级超时（秒）
-"""
+"""MPAR full test-set run with checkpoints. Requires OPENAI_API_KEY and MARC_CACHE_DIR."""
 import argparse
 import json
 import os
@@ -45,7 +27,7 @@ from methods.mpar.config_v3 import ARCHITECTURE_VERSION, AGENT_MODELS, EAA_MODEL
 from methods.mpar.run_v3 import _build_log_entry, behavior_summary
 
 OUT_DIR = os.environ.get("MARC_V37_OUT_DIR", os.path.join(REPO_ROOT, "results", "mpar", "run1"))
-CHECKPOINT_EVERY = 100  # 每 100 条保存一次 checkpoint
+CHECKPOINT_EVERY = 100
 
 
 def run_dataset(dataset: str, resume: bool = False, force: bool = False):

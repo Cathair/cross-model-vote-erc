@@ -1,4 +1,4 @@
-"""MPAR LLM 客户端与 Agent."""
+"""MPAR LLM clients and role agents."""
 import os
 import time
 from typing import Dict, Optional
@@ -21,7 +21,6 @@ from .utils_v3 import parse_json_response, extract_emotion, validate_label
 ANTHROPIC_BASE_URL = os.environ.get("OPENAI_API_BASE", os.environ.get("ANTHROPIC_BASE_URL", "https://api.openai.com/v1"))
 ANTHROPIC_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 
-# API 调用超时 180s（3 分钟），重试 3 次
 API_CALL_TIMEOUT = int(os.environ.get("MARC_API_TIMEOUT", "180"))
 
 
@@ -179,7 +178,6 @@ def build_dynamic_constraints(
     soft_pair_hint: Optional[dict] = None,
     discussion_mode: str = "split",
 ) -> str:
-    """P0-A + P1：动态候选 + 通用 evidence Rubric；soft_pair 仅作可读 hint。"""
     prag_block = ""
     if prag_brief and prag_brief != "No pragmatics signal (Call-2 skipped or unavailable).":
         prag_block = f"Pragmatics note (re-evaluate literal reading): {prag_brief}"
@@ -201,7 +199,6 @@ def build_dynamic_constraints(
 
 
 class EAACaller:
-    """EAA 两次独立调用。"""
 
     def __init__(self, model: str = None):
         self.model = model or EAA_MODEL

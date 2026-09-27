@@ -1,8 +1,4 @@
-"""Paper Table 3: MPAR-MV-3 vs MPAR-ZS-MV-3 (random label tie-break).
-
-Outputs:
-  results/tables/table_prompt_ablation.{csv,md,json}
-"""
+"""Table III: role-prompt vs ZS majority vote on fixed three-model slots."""
 from __future__ import annotations
 
 import csv

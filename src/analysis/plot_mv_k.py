@@ -1,19 +1,6 @@
 from __future__ import annotations
 
-"""MV-k ensemble size line chart (IEM / MELD / Combined WF1 vs k).
-
-Fair 3-run protocol: for each run r and size k, mean WF1 over C(4,k) combos; then mean over 3 runs.
-
-Outputs:
-  results/figures/fig_rq3_mv_k_wf1.{png,pdf}
-  results/tables/table_mv_k_ensemble_size_summary.{csv,json}
-  results/tables/table_mv_k_result.{csv,json,md}
-  results/tables/zs_4model_ensemble_size_3run.json
-
-Usage (repo root):
-  bash scripts/phase2/run_02_plot_mv_k.sh
-  python src/analysis/plot_mv_k.py
-"""
+"""Fig. 2 and Table II: fair 3-run MV-K WF1 vs ensemble size."""
 import os
 import sys
 
@@ -49,7 +36,7 @@ import numpy as np
 N_COMBOS = {1: 4, 2: 6, 3: 4, 4: 1}
 
 COLORS = {"iem": "#EEA599", "meld": "#FAC795", "comb": "#92B4C8"}
-# 参考线用同色系更深色，与 MV-k 曲线区分
+# Best-ZS reference line (darker shade)
 REF_COLORS = {"iem": "#B84532", "meld": "#C96E1A", "comb": "#2E5F7A"}
 LABELS = {"iem": "IEMOCAP WF1", "meld": "MELD WF1", "comb": "Combined WF1"}
 

@@ -1,4 +1,4 @@
-"""单条样本级重试与超时（error / 超时均重试，间隔 1s，最多 5 次重试 = 6 次尝试）."""
+"""Per-sample API call retry and wall-clock timeout."""
 import concurrent.futures
 import os
 import time
@@ -6,14 +6,13 @@ from typing import Callable, Tuple, TypeVar
 
 T = TypeVar("T")
 
-# 失败后重试次数（不含首次）；MARC_SAMPLE_MAX_RETRIES 可覆盖
 SAMPLE_MAX_RETRIES = int(os.environ.get("MARC_SAMPLE_MAX_RETRIES", "5"))
 SAMPLE_RETRY_INTERVAL_SEC = float(os.environ.get("MARC_SAMPLE_RETRY_INTERVAL_SEC", "1.0"))
 SAMPLE_TIMEOUT_SEC = float(os.environ.get("MARC_SAMPLE_TIMEOUT_SEC", "300.0"))  # 5 min per sample
 
 
 class SampleTimeoutError(TimeoutError):
-    """单条样本 wall-clock 超过 SAMPLE_TIMEOUT_SEC."""
+    pass
 
 
 def call_sample_with_retry(
@@ -24,7 +23,7 @@ def call_sample_with_retry(
     interval_sec: float = SAMPLE_RETRY_INTERVAL_SEC,
     timeout_sec: float = SAMPLE_TIMEOUT_SEC,
 ) -> Tuple[T, int]:
-    """执行 fn；失败或超时则间隔重试，成功返回 (result, attempts_used_after_first)."""
+    """Run fn with retries; return (result, attempts_after_first_success)."""
     last_err = None
     total_attempts = max_retries + 1
 

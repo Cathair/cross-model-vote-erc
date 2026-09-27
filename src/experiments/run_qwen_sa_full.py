@@ -1,12 +1,4 @@
-"""qwen-plus SingleAgent on full IEMOCAP + MELD test sets.
-
-续跑：进度写入同一输出 JSON（覆盖更新），不生成多个 checkpoint 文件。
-存在 in_progress 文件时默认自动续跑；用 --fresh 强制从头重跑。
-
-用法:
-  python src/experiments/run_qwen_sa_full.py --run 1
-  python src/experiments/run_qwen_sa_full.py --run 1 --dataset meld
-"""
+"""Qwen-plus role-prompt single-agent inference. Resumes partial JSON; --fresh to restart."""
 import argparse
 import fcntl
 import glob

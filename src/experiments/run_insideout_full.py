@@ -1,15 +1,4 @@
-"""InsideOut baseline on full IEMOCAP + MELD test sets (Mozikov et al. 2024).
-
-Architecture: 5 Ekman emotion agents + 1 Aggregate Agent (6 API calls/sample).
-Reimplemented following CMTD (ACL Findings 2026) description for IEM/MELD ZS ERC.
-
-续跑：进度写入同一输出 JSON；存在 in_progress 文件时默认自动续跑。
-
-用法:
-  python src/experiments/run_insideout_full.py --model gpt-4o --run 1
-  python src/experiments/run_insideout_full.py --model claude-3-haiku-20240307 --run 1 --dataset meld
-  python src/experiments/run_insideout_full.py --model gpt-4o --run 1 --max-samples 20  # smoke
-"""
+"""InsideOut baseline (5 Ekman agents + aggregate). Resumes partial JSON; --fresh to restart."""
 import argparse
 import fcntl
 import glob

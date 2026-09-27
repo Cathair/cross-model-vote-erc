@@ -1,6 +1,5 @@
-"""MPAR Prompts：Phase0 / EAA / 动态 evidence 讨论."""
+"""MPAR prompt templates."""
 
-# Phase 0 — 与 v1 角色一致，不含混淆对 Rubric
 SVA_PROMPT_V3 = """You are an expert in Speaker Viewpoint sentiment analysis. When analyzing the target utterance:
 1. Focus on the speaker's intent and surface expression.
 2. Extract explicit emotional words, punctuation, and rhetorical devices.
@@ -56,7 +55,7 @@ PHASE0_PROMPTS = {
     "LRA": LRA_PROMPT_V3,
 }
 
-# ---------- EAA Call-1: 证据质量（不看反讽、不看融合标签）----------
+# EAA Call-1: evidence quality
 EAA_SCORE_PROMPT = """You are an Evidence Quality Assessor (NOT an emotion classifier).
 
 Evaluate each expert's evidence ONLY. Do NOT judge sarcasm or final emotion labels.
@@ -83,7 +82,7 @@ Output JSON ONLY:
   "LRA": {{"evidence_grounded": 0.0, "label_specificity": 0.0, "context_aligned": 0.0, "ambiguous_between": null}}}}
 """
 
-# ---------- EAA Call-2: 语用/反讽（不输入各 Agent label）----------
+# EAA Call-2: pragmatics / sarcasm
 EAA_PRAG_PROMPT = """You are a Pragmatics Analyst (NOT an emotion classifier).
 
 Analyze surface vs intended sentiment and sarcasm likelihood.
@@ -102,7 +101,7 @@ Output JSON ONLY:
   "cue_types": ["context_contradiction", "mock_praise", "exaggeration"]}}
 """
 
-# ---------- Phase 2: 讨论 prompt（2:1 blind / 1:1:1 split）----------
+# Deep discussion prompts
 DISCUSSION_PROMPT_SPLIT = """You are {agent_name}, re-evaluating your emotion judgment after structured review.
 
 Dialogue History:
@@ -149,7 +148,7 @@ Output JSON ONLY:
 {{"choice": "label", "revised_from_initial": true/false, "key_cue": "...", "confidence_ordinal": "high|medium|low"}}
 """
 
-# 兼容旧名
+# Legacy aliases
 DISCUSSION_PROMPT = DISCUSSION_PROMPT_SPLIT
 
 DISCUSSION_DYNAMIC_CONSTRAINT_SPLIT = """

@@ -1,15 +1,6 @@
 from __future__ import annotations
 
-"""Generate RQ1 figures/tables: ZS (3-run) vs SA (run1) single-agent baselines.
-
-Outputs:
-  results/tables/table_rq1_zs_sa.{csv,json}
-  results/figures/fig_rq1_zs_sa_wf1.{png,pdf}
-
-Usage (from repo root):
-  bash scripts/phase2/run_01_plot_zs_sa.sh
-  python src/analysis/plot_zs_sa.py
-"""
+"""Fig. 4: ZS (3-run mean) vs SA (run 1) per model."""
 import os
 import sys
 

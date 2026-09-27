@@ -1,4 +1,4 @@
-"""MPAR 路由、动态讨论候选、确定性融合."""
+"""MPAR routing, discussion candidates, and deterministic fusion."""
 from collections import Counter
 from typing import Dict, List, Optional, Tuple
 
@@ -29,20 +29,14 @@ def labels_from_phase0(phase0: Dict[str, dict]) -> Dict[str, str]:
 
 
 def dynamic_discussion_allowed(labels: Dict[str, str]) -> List[str]:
-    """P0-A：讨论候选 = Phase-0 实际出现的标签并集（不用 gold、不用固定表）。"""
     return sorted(set(labels.values()))
 
 
 def infer_soft_confusion_hint(strategy: str, labels: Dict[str, str]) -> Optional[dict]:
-    """CONFUSION_PAIRS 已删除，本函数恒返回 None。
-
-    保留函数签名以避免调用方改动；soft hint 不再注入 discussion prompt。
-    """
     return None
 
 
 def has_low_specificity(scores: Dict[str, dict], tau: float = TAU_SSPEC) -> bool:
-    """P0-C：任一 Agent label_specificity 低于阈值。"""
     for name in AGENT_NAMES:
         sc = scores.get(name, {})
         if float(sc.get("label_specificity", 1.0)) < tau:
@@ -51,7 +45,6 @@ def has_low_specificity(scores: Dict[str, dict], tau: float = TAU_SSPEC) -> bool
 
 
 def should_skip_eaa_prag(labels: Dict[str, str]) -> bool:
-    """两数据集统一：三 Agent 一致 → 跳过 Call-2。"""
     return len(set(labels.values())) == 1
 
 
@@ -71,10 +64,6 @@ def should_enter_discussion(
     prag: Optional[dict],
     scores: Dict[str, dict],
 ) -> Tuple[bool, List[str]]:
-    """P2（无 gold）：仅在有语用信号或证据不专属时 Deep；纯 2:1 高分歧 → Fast 加权融合。
-
-    绝不使用 test gold 决定是否讨论。
-    """
     reasons = []
     unanimous = len(set(labels.values())) == 1
 
@@ -84,7 +73,6 @@ def should_enter_discussion(
         enter = bool(reasons)
         return enter, reasons
 
-    # 有分歧
     if has_low_specificity(scores):
         reasons.append("low_label_specificity")
 
@@ -92,7 +80,6 @@ def should_enter_discussion(
         reasons.insert(0, "label_disagreement")
         return True, reasons
 
-    # 纯 label 分歧且 EAA specificity 均不低 → Fast（不加 label_disagreement 到 reasons）
     return False, []
 
 
@@ -118,15 +105,10 @@ def discussion_factors_for_fusion(
     discussion: Dict[str, dict],
     labels0: Dict[str, str],
 ) -> Dict[str, float]:
-    """P1：融合不对 discussion ordinal 降权；讨论只改 label，d 恒为 1.0。
-
-    ordinal 仍保留在 discussion 输出中供日志分析。
-    """
     return {n: 1.0 for n in AGENT_NAMES}
 
 
 def minority_agents(labels: Dict[str, str]) -> List[str]:
-    """2:1 时返回少数派 Agent 名（3:0 或 1:1:1 返回空）。"""
     counts = Counter(labels.values())
     if len(counts) != 2 or max(counts.values()) != 2:
         return []
@@ -135,7 +117,6 @@ def minority_agents(labels: Dict[str, str]) -> List[str]:
 
 
 def minority_label_from_agents(labels: Dict[str, str]) -> str:
-    """2:1 讨论标签时返回少数派标签；无少数派时回退 CIA。"""
     mins = minority_agents(labels)
     if not mins:
         return labels.get("CIA", "neutral")
@@ -148,7 +129,6 @@ def minority_label_from_agents(labels: Dict[str, str]) -> str:
 
 
 def vote_pattern(labels: Dict[str, str]) -> str:
-    """Phase-0 投票形态：unanimous / 2:1 / 1:1:1 / other。"""
     counts = Counter(labels.values())
     if len(counts) == 1:
         return "unanimous"
@@ -179,7 +159,6 @@ def build_two_option_discussion_block(
     scores: Dict[str, dict],
     base: Dict[str, float],
 ) -> Tuple[str, dict]:
-    """2:1 讨论：每个候选 label 只展示 1 条最强 evidence（按 g×s 选代表），全员相同、不暴露 self/headcount。"""
     label_totals: Dict[str, float] = {}
     for name in AGENT_NAMES:
         L = labels[name]
@@ -207,12 +186,10 @@ def build_two_option_discussion_block(
 
 
 def discussion_mode_for_vote(vote: str) -> str:
-    """2:1 → blind label-centric；其余（含 1:1:1、unanimous+Prag）→ 原 agent-centric。"""
     return "2:1_blind" if vote == "2:1" else "split"
 
 
 def _has_arousal_cues(utterance: str) -> bool:
-    """P2-2：utterance 含 !、? 或全大写词（≥2 字母）。"""
     if "!" in utterance or "?" in utterance:
         return True
     for word in utterance.split():
@@ -228,23 +205,13 @@ def _apply_p2_arousal_filter(
     strategy: str,
     enabled: bool,
 ) -> Dict[str, float]:
-    """通用 P2：高唤醒 utterance + Agent 分歧 → 抑制少数派标签。
-
-    规则（不依赖 strategy、不依赖固定标签集）：
-    1. utterance 含高唤醒线索（!/?/全大写词）才激活
-    2. Phase-0 三 Agent unanimous → 不抑制（共识强，即使高唤醒）
-    3. 2:1 或 1:1:1 分歧 → 抑制得票最低的标签（少数派）
-    4. 若抑制后 totals 为空 → 回退原 totals
-
-    strategy 参数保留以兼容签名，但不再使用。
-    """
     if not enabled or not totals:
         return totals
     if not _has_arousal_cues(utterance):
         return totals
     counts = Counter(labels.values())
     if len(counts) == 1:
-        return totals  # unanimous
+        return totals
     minority_count = min(counts.values())
     minority_labels = {l for l, c in counts.items() if c == minority_count}
     filtered = {k: v for k, v in totals.items() if k not in minority_labels}
@@ -252,7 +219,6 @@ def _apply_p2_arousal_filter(
 
 
 def fusion_margin_from_totals(totals: Dict[str, float]) -> float:
-    """top1 − top2 融合分数差；仅一个候选时返回 top1 分数。"""
     if not totals:
         return 0.0
     sorted_scores = sorted(totals.values(), reverse=True)
@@ -272,7 +238,6 @@ def fuse_labels(
     utterance: str = "",
     strategy: str = "",
 ) -> Tuple[str, dict]:
-    """确定性 argmax 融合；返回 (final_label, fusion_detail)。"""
     discussion_factors = discussion_factors or {n: 1.0 for n in AGENT_NAMES}
     gate_tau = TAU_G if tau_g is None else tau_g
     arousal_on = P2_AROUSAL_GATE if p2_arousal is None else p2_arousal

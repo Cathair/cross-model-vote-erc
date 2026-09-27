@@ -1,4 +1,4 @@
-"""MPAR 主流程."""
+"""MPAR inference pipeline."""
 from typing import Dict, List, Optional, Tuple
 
 from config import get_label_list
@@ -39,8 +39,6 @@ from .utils_v3 import extract_emotion
 
 
 class MARC_ERC_V3:
-    """异构三 Agent + EAA 双调用 + 动态 evidence 讨论 + 规则融合。"""
-
     def __init__(self, strategy: str):
         self.strategy = strategy
         self.label_list = get_label_list(strategy)
@@ -92,7 +90,6 @@ class MARC_ERC_V3:
 
         meta["prag_brief"] = build_prag_brief(eaa_prag if not skip_prag else None)
 
-        # Phase 1 — 路由（无 gold）
         if FAST_ONLY:
             enter_disc = False
             route_reasons = ["fast_only"]
@@ -145,7 +142,6 @@ class MARC_ERC_V3:
             meta["fallback"] = bool(fusion_detail.get("cia_fallback"))
             return validate_label(final, self.label_list), meta
 
-        # Phase 2 — 动态 evidence 讨论 1 轮
         allowed = dynamic_discussion_allowed(labels0)
         vote = vote_pattern(labels0)
         disc_mode = discussion_mode_for_vote(vote)
@@ -237,7 +233,6 @@ class MARC_ERC_V3:
         meta: dict,
         api_calls: int,
     ) -> Tuple[str, dict]:
-        """两阶段：Stage1 Fast 融合 + margin 门控；Stage2 单 Agent 仲裁。"""
         fast_pred, fast_detail = fuse_labels(
             labels0, norm_scores, base, utterance=utterance, strategy=self.strategy
         )
@@ -260,7 +255,6 @@ class MARC_ERC_V3:
             meta["fallback"] = bool(fast_detail.get("cia_fallback"))
             return validate_label(fast_pred, self.label_list), meta
 
-        # Stage 2 — 单 Agent 仲裁（复用 Deep 讨论 prompt / cache）
         arb = ARBITRATOR_AGENT if ARBITRATOR_AGENT in AGENT_NAMES else "CIA"
         allowed = dynamic_discussion_allowed(labels0)
         vote = vote_pattern(labels0)
@@ -332,7 +326,6 @@ def _resolve_deep_final(
     fusion_detail: dict,
     label_list: List[str],
 ) -> Tuple[str, dict]:
-    """Deep 路径统一决策（IEM + MELD 相同规则，由 MARC_DEEP_MODE 控制）。"""
     detail = {**fusion_detail, "fused_pred": final_fused, "deep_mode": DEEP_MODE}
     post_vote = vote_pattern(labels_d)
 
@@ -351,7 +344,6 @@ def _resolve_deep_final(
 
 
 def _maybe_cia_fallback(final: str, fusion_detail: dict, labels0: Dict[str, str]) -> Tuple[str, dict]:
-    """低 margin 时回退 CIA（qwen）Phase-0 标签。"""
     if not CIA_FALLBACK:
         return final, fusion_detail
     margin = fusion_margin_from_totals(fusion_detail.get("totals") or {})

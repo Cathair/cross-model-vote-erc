@@ -1,13 +1,4 @@
-"""SingleAgent (SA) baseline on full IEMOCAP + MELD test sets (model-agnostic).
-
-续跑：进度写入同一输出 JSON（覆盖更新），不生成多个 checkpoint 文件。
-存在 in_progress 文件时默认自动续跑；用 --fresh 强制从头重跑。
-
-用法:
-  python src/experiments/run_sa_full.py --model qwen-plus --run 1
-  python src/experiments/run_sa_full.py --model gemini-2.5-flash-lite --run 1
-  python src/experiments/run_sa_full.py --model claude-3-haiku-20240307 --run 1 --dataset meld
-"""
+"""Role-prompt single-agent inference on full test sets. Resumes partial JSON; --fresh to restart."""
 import argparse
 import fcntl
 import glob

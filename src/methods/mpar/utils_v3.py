@@ -1,4 +1,4 @@
-"""MPAR 工具函数."""
+"""MPAR helpers."""
 import sys
 import os
 

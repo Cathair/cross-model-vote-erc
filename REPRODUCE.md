@@ -4,6 +4,10 @@ Reproduces paper **Tables I–III** and **analysis figures** (`fig_rq1_zs_sa_wf1
 
 Precomputed run outputs are **not** included; complete Phase 1 before Phase 2.
 
+## API setup
+
+All runners use `langchain_openai` with `OPENAI_API_KEY` and `OPENAI_API_BASE` (see `.env.example`). Point the base URL at an **OpenAI-compatible** gateway that exposes the four paper models (e.g. `gemini-2.5-flash-lite`, `claude-3-haiku-20240307`, `gpt-4o`, `qwen-plus`). Paper display names (Claude-3-Haiku, Qwen-Plus) map to these API model IDs in the scripts.
+
 ## Workflow
 
 | Step | Command | Output |
